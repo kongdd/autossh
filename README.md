@@ -23,11 +23,11 @@ On Windows, install [OpenSSH Client](https://learn.microsoft.com/windows-server/
 
 ## Configuration
 
-Copy and edit [`config.example.toml`](config.example.toml), then validate it:
+Copy and edit [`config.example.toml`](config.example.toml), then validate it. The default location is `$HOME/.config/autossh/config.toml` on every platform (Windows resolves `%USERPROFILE%` when `HOME` is unset):
 
 ```powershell
-.\rust-autossh.exe check --config C:\ProgramData\rust-autossh\config.toml
-.\rust-autossh.exe run --config C:\ProgramData\rust-autossh\config.toml
+.\rust-autossh.exe check --config %USERPROFILE%\.config\autossh\config.toml
+.\rust-autossh.exe run --config %USERPROFILE%\.config\autossh\config.toml
 ```
 
 Each `[[connections]]` block creates one `ssh` process; `name` doubles as both the log identifier and the SSH destination (host/IP/alias). Its `forwards` array may mix any number of `-L` and `-R` mappings. SSH host aliases and all ordinary settings in `%USERPROFILE%\.ssh\config` work unchanged. Configure key-based authentication or `ssh-agent`; password prompts are disabled by `BatchMode=yes`.
@@ -40,11 +40,13 @@ extra_args = ["-i", "C:\\Users\\alice\\.ssh\\id_ed25519", "-o", "StrictHostKeyCh
 
 ## Windows Service
 
-Open an **elevated** PowerShell. Keep the configuration in a system-readable protected directory, validate it, then install and start the service:
+Open an **elevated** PowerShell. Service-mode runs as `LocalSystem` whose `%USERPROFILE%` is `C:\Windows\System32\config\systemprofile`, so put the configuration somewhere reachable by the service account and pass it explicitly:
 
 ```powershell
-.\rust-autossh.exe check --config C:\ProgramData\rust-autossh\config.toml
-.\rust-autossh.exe install --config C:\ProgramData\rust-autossh\config.toml
+mkdir C:\ProgramData\autossh
+copy .\config.example.toml C:\ProgramData\autossh\config.toml
+.\rust-autossh.exe check --config C:\ProgramData\autossh\config.toml
+.\rust-autossh.exe install --config C:\ProgramData\autossh\config.toml
 .\rust-autossh.exe start
 ```
 

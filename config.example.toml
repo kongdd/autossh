@@ -1,3 +1,5 @@
+# Default config path: ~/.config/autossh/config.toml
+# Use --config to specify a different path.
 # Each [[connections]] block starts one ssh process with any number of -L / -R forwards.
 # Authentication uses ordinary ~/.ssh/config (keys, agent, Host aliases).
 

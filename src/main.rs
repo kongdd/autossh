@@ -1,10 +1,9 @@
 use std::{
+    fs,
     path::PathBuf,
+    process::Command,
     sync::{Arc, atomic::AtomicBool},
 };
-
-#[cfg(windows)]
-use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -50,6 +49,11 @@ enum CommandName {
     Stop,
     /// Remove the Windows service. Run from an elevated shell.
     Uninstall,
+    /// Open the configuration file in the default editor (code / code.exe).
+    Edit {
+        #[arg(short, long, default_value_os_t = default_config_path())]
+        config: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -63,16 +67,45 @@ fn main() -> Result<()> {
         CommandName::Start => sc_command(["start", SERVICE_NAME]),
         CommandName::Stop => sc_command(["stop", SERVICE_NAME]),
         CommandName::Uninstall => sc_command(["delete", SERVICE_NAME]),
+        CommandName::Edit { config } => edit_config(config),
     }
 }
 
+fn edit_config(config: PathBuf) -> Result<()> {
+    ensure_config(&config)?;
+    let editor = if cfg!(windows) { "code.exe" } else { "code" };
+    let status = Command::new(editor)
+        .arg(&config)
+        .status()
+        .with_context(|| format!("cannot start {editor}"))?;
+    if !status.success() {
+        bail!("{editor} exited with {status}");
+    }
+    Ok(())
+}
+
+fn ensure_config(path: &PathBuf) -> Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("cannot create {}", parent.display()))?;
+    }
+    fs::write(path, EXAMPLE_CONFIG).with_context(|| format!("cannot write {}", path.display()))?;
+    eprintln!("Created {}. Edit it, then run again.", path.display());
+    std::process::exit(0);
+}
+
 fn check_config(config: PathBuf) -> Result<()> {
+    ensure_config(&config)?;
     let config = rust_autossh::Config::load(&config)?;
     println!("valid: {} connection(s)", config.connections.len());
     Ok(())
 }
 
 fn run_foreground(config: PathBuf) -> Result<()> {
+    ensure_config(&config)?;
     let stop = Arc::new(AtomicBool::new(false));
     let signal = stop.clone();
     ctrlc::set_handler(move || signal.store(true, std::sync::atomic::Ordering::SeqCst))
@@ -235,15 +268,24 @@ fn sc_command<const N: usize>(_arguments: [&str; N]) -> Result<()> {
     bail!("Windows service management is only available on Windows")
 }
 
+const EXAMPLE_CONFIG: &str = r##"# Each [[connections]] block starts one ssh process with any number of -L / -R forwards.
+# Edit this file, then run `rust-autossh run` again.
+
+[[connections]]
+name = "myhost"
+forwards = [
+  { mode = "local",  forward = "8080:127.0.0.1:8080" },
+  { mode = "remote", forward = "10022:127.0.0.1:22" },
+]
+keepalive = { interval = 60, count_max = 3 }
+"##;
+
 fn default_config_path() -> PathBuf {
-    #[cfg(windows)]
-    {
-        PathBuf::from(std::env::var_os("PROGRAMDATA").unwrap_or_else(|| "C:\\ProgramData".into()))
-            .join("rust-autossh")
-            .join("config.toml")
-    }
-    #[cfg(not(windows))]
-    {
-        PathBuf::from("/etc/rust-autossh/config.toml")
-    }
+    // Per-user XDG-style config on every platform: $HOME/.config/autossh/config.toml.
+    // HOME is set on Linux and macOS; Windows uses USERPROFILE as a fallback when HOME
+    // is missing (e.g. a service host that has no interactive shell profile).
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .unwrap_or_else(|| ".".into());
+    PathBuf::from(home).join(".config/autossh/config.toml")
 }
