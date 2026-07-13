@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::{ConnectionConfig, ForwardConfig, ForwardMode, KeepaliveConfig, RetryConfig};
+use crate::config::{ConnectionConfig, ForwardConfig, ForwardMode};
 
 fn connection() -> ConnectionConfig {
     ConnectionConfig {
@@ -11,8 +11,6 @@ fn connection() -> ConnectionConfig {
         port: None,
         enabled: true,
         ssh_path: None,
-        keepalive: KeepaliveConfig::default(),
-        retry: RetryConfig::default(),
         extra_args: Vec::new(),
         forwards: vec![ForwardConfig {
             enabled: true,

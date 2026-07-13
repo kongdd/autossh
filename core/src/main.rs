@@ -228,7 +228,12 @@ fn run_service(_config: PathBuf) -> Result<()> {
 }
 
 const EXAMPLE_CONFIG: &str = r##"# Each [[connections]] block starts one ssh process with any number of -L / -R forwards.
+# keepalive / retry apply to ALL connections; per-connection overrides are
+# intentional not supported so the supervisor lifecycle stays predictable.
 # Edit this file, then run `rust-autossh run` again.
+
+keepalive = { interval = 60, count_max = 3, connect_timeout = 15 }
+retry     = { initial_seconds = 1, maximum_seconds = 60, stable_seconds = 60 }
 
 [[connections]]
 name = "primary"
@@ -237,5 +242,4 @@ forwards = [
   { mode = "local",  forward = "8080:127.0.0.1:8080" },
   { mode = "remote", forward = "10022:127.0.0.1:22" },
 ]
-keepalive = { interval = 60, count_max = 3 }
 "##;

@@ -10,7 +10,7 @@ use std::{
 };
 
 use autossh_core::{
-    Config, ConnectionConfig, ForwardConfig, ForwardMode, KeepaliveConfig, RetryConfig,
+    Config, ConnectionConfig, ForwardConfig, ForwardMode, KeepaliveConfig,
     test_connection,
 };
 use eframe::egui::{self, Color32, RichText};
@@ -277,8 +277,6 @@ pub struct CandidateConnection {
     pub name: String,
     pub host: String,
     pub forwards: Vec<ForwardConfig>,
-    pub keepalive: KeepaliveConfig,
-    pub retry: RetryConfig,
     pub selected: bool,
     pub duplicate: bool,
 }
@@ -286,7 +284,7 @@ pub struct CandidateConnection {
 /// Map an editable dialog field to its `Option<String>` storage form: an empty
 /// input writes `None` (fallback to default behaviour), a non-empty value is
 /// trimmed and wrapped.
-fn field_into_option(value: &str) -> Option<String> {
+pub(crate) fn field_into_option(value: &str) -> Option<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         None
@@ -341,8 +339,6 @@ fn connection_for_test(state: &AddDialogState) -> ConnectionConfig {
         port: field_into_port(&state.port).unwrap_or(None),
         enabled: true,
         ssh_path: None,
-        keepalive: KeepaliveConfig::default(),
-        retry: RetryConfig::default(),
         extra_args: Vec::new(),
         forwards: Vec::new(),
     }
@@ -353,13 +349,14 @@ fn connection_for_test(state: &AddDialogState) -> ConnectionConfig {
 /// 15 s `ConnectTimeout` yet short enough not to stall the dialog.
 fn spawn_test(state: &mut AddDialogState) {
     let connection = connection_for_test(state);
+    let keepalive = KeepaliveConfig::default();
     state.test_status = TestStatus::Running;
     state.test_channel = Arc::new(Mutex::new(None));
     let channel = Arc::clone(&state.test_channel);
     let _ = std::thread::Builder::new()
         .name("ssh-test".into())
         .spawn(move || {
-            let output = test_connection(&connection, Duration::from_secs(20));
+            let output = test_connection(&connection, &keepalive, Duration::from_secs(20));
             if let Ok(mut guard) = channel.lock() {
                 *guard = Some((output.ok, output.message));
             }
@@ -1099,8 +1096,6 @@ impl ImportDialogState {
                             name,
                             host,
                             forwards: c.forwards,
-                            keepalive: c.keepalive,
-                            retry: c.retry,
                             selected: !duplicate,
                             duplicate,
                         }
@@ -1149,7 +1144,7 @@ impl SshImportState {
 mod tests {
     use super::*;
     use autossh_core::{
-        ConnectionConfig, ForwardConfig, ForwardMode, KeepaliveConfig, RetryConfig,
+        ConnectionConfig, ForwardConfig, ForwardMode,
     };
 
     fn make_connection(name: &str, host: &str, forward: &str) -> ConnectionConfig {
@@ -1162,8 +1157,6 @@ mod tests {
             port: None,
             enabled: true,
             ssh_path: None,
-            keepalive: KeepaliveConfig::default(),
-            retry: RetryConfig::default(),
             extra_args: Vec::new(),
             forwards: vec![ForwardConfig {
                 enabled: true,
@@ -1182,6 +1175,8 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let src = Config {
             log: Default::default(),
+            keepalive: Default::default(),
+            retry: Default::default(),
             connections: vec![
                 make_connection("home", "c005", "8080:127.0.0.1:8080"),
                 make_connection("backup", "c006", "10022:127.0.0.1:22"),
@@ -1336,8 +1331,6 @@ mod tests {
             port: None,
             enabled: true,
             ssh_path: None,
-            keepalive: KeepaliveConfig::default(),
-            retry: RetryConfig::default(),
             extra_args: Vec::new(),
             forwards: vec![],
         };

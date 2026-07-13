@@ -11,8 +11,6 @@ fn connection() -> ConnectionConfig {
         port: None,
         enabled: true,
         ssh_path: None,
-        keepalive: KeepaliveConfig::default(),
-        retry: RetryConfig::default(),
         extra_args: vec!["-v".into()],
         forwards: vec![
             ForwardConfig {
@@ -33,7 +31,7 @@ fn connection() -> ConnectionConfig {
 
 #[test]
 fn creates_multiple_ssh_forward_arguments() {
-    let args = args(&connection());
+    let args = args(&connection(), &KeepaliveConfig::default());
     assert_eq!(args[0..2], ["-N", "-T"]);
     assert!(
         args.windows(2)
@@ -59,7 +57,7 @@ fn emits_dynamic_forward_argument_as_dash_d() {
         forward: "1080".into(),
         description: None,
     });
-    let args = args(&conn);
+    let args = args(&conn, &KeepaliveConfig::default());
     assert!(
         args.windows(2).any(|part| part == ["-D", "1080"]),
         "missing -D port pair in {args:?}"
@@ -70,7 +68,7 @@ fn emits_dynamic_forward_argument_as_dash_d() {
 fn disabled_forwards_are_omitted() {
     let mut conn = connection();
     conn.forwards[0].enabled = false;
-    let args = args(&conn);
+    let args = args(&conn, &KeepaliveConfig::default());
     assert!(!args.iter().any(|arg| arg == "-L"));
     assert!(args.iter().any(|arg| arg == "-R"));
 }
@@ -84,7 +82,7 @@ fn emits_dynamic_forward_with_bind_address() {
         forward: "0.0.0.0:1080".into(),
         description: None,
     }];
-    let args = args(&conn);
+    let args = args(&conn, &KeepaliveConfig::default());
     assert!(args.windows(2).any(|part| part == ["-D", "0.0.0.0:1080"]));
 }
 
@@ -92,7 +90,7 @@ fn emits_dynamic_forward_with_bind_address() {
 fn name_remains_the_default_destination() {
     let mut connection = connection();
     connection.host = None;
-    assert_eq!(args(&connection).last().unwrap(), "primary");
+    assert_eq!(args(&connection, &KeepaliveConfig::default()).last().unwrap(), "primary");
 }
 
 #[test]
@@ -138,7 +136,7 @@ fn has_password_is_false_when_unset_or_blank() {
 fn args_drop_batchmode_when_password_is_set() {
     let mut connection = connection();
     connection.password = Some("s3cret".into());
-    let args = args(&connection);
+    let args = args(&connection, &KeepaliveConfig::default());
     assert!(
         !args.windows(2).any(|w| w == ["-o", "BatchMode=yes"]),
         "BatchMode must be dropped when a password is set: {args:?}"
@@ -148,7 +146,7 @@ fn args_drop_batchmode_when_password_is_set() {
 #[test]
 fn args_keep_batchmode_for_key_auth() {
     // Default (no password) preserves the historical key-only auth path.
-    let args = args(&connection());
+    let args = args(&connection(), &KeepaliveConfig::default());
     assert!(
         args.windows(2).any(|w| w == ["-o", "BatchMode=yes"]),
         "BatchMode must remain for key/agent auth: {args:?}"
@@ -159,9 +157,9 @@ fn args_keep_batchmode_for_key_auth() {
 fn args_include_configured_ssh_port() {
     let mut conn = connection();
     conn.port = Some(2202);
-    assert!(args(&conn).windows(2).any(|part| part == ["-p", "2202"]));
+    assert!(&args(&conn, &KeepaliveConfig::default()).windows(2).any(|part| part == ["-p", "2202"]));
     assert!(
-        test_args(&conn)
+        test_args(&conn, &KeepaliveConfig::default())
             .windows(2)
             .any(|part| part == ["-p", "2202"])
     );
@@ -171,7 +169,7 @@ fn args_include_configured_ssh_port() {
 fn test_args_omit_forwards_and_run_a_noop_command() {
     // The probe must authenticate and exit, not open a tunnel: no `-N`, no
     // forwards, and a trailing `true` so the server runs nothing.
-    let args = test_args(&connection());
+    let args = test_args(&connection(), &KeepaliveConfig::default());
     assert!(
         args.windows(2).any(|part| part == ["-o", "BatchMode=yes"]),
         "expected BatchMode=yes in {args:?}"

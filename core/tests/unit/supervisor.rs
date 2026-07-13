@@ -11,8 +11,6 @@ fn connection() -> ConnectionConfig {
         port: None,
         enabled: true,
         ssh_path: Some("ssh-command-that-does-not-exist".into()),
-        keepalive: KeepaliveConfig::default(),
-        retry: RetryConfig::default(),
         extra_args: Vec::new(),
         forwards: vec![ForwardConfig {
             enabled: true,
@@ -43,11 +41,23 @@ fn decodes_utf8_stderr_and_removes_line_endings() {
 fn reconfigure_restarts_only_changed_workers() {
     let logger = Logger::new(Path::new("config.toml"), &Default::default()).unwrap();
     let original = connection();
-    let mut supervisor = Supervisor::start(vec![original.clone()], logger.clone()).unwrap();
+    let mut supervisor = Supervisor::start(
+        vec![original.clone()],
+        KeepaliveConfig::default(),
+        RetryConfig::default(),
+        logger.clone(),
+    )
+    .unwrap();
     let first_thread = supervisor.workers["test"].handle.thread().id();
 
     supervisor
-        .reconfigure(vec![original.clone()], logger.clone(), false)
+        .reconfigure(
+            vec![original.clone()],
+            KeepaliveConfig::default(),
+            RetryConfig::default(),
+            logger.clone(),
+            false,
+        )
         .unwrap();
     assert_eq!(
         first_thread,
@@ -57,7 +67,13 @@ fn reconfigure_restarts_only_changed_workers() {
     let mut changed = original;
     changed.forwards[0].forward = "8081:127.0.0.1:8081".into();
     supervisor
-        .reconfigure(vec![changed], logger, false)
+        .reconfigure(
+            vec![changed],
+            KeepaliveConfig::default(),
+            RetryConfig::default(),
+            logger,
+            false,
+        )
         .unwrap();
     assert_ne!(
         first_thread,

@@ -22,10 +22,11 @@ use std::sync::OnceLock;
 #[cfg(windows)]
 use windows_sys::Win32::Globalization::GetACP;
 
-use crate::config::{Config, ConnectionConfig};
+use crate::config::{Config, ConnectionConfig, KeepaliveConfig, RetryConfig};
 use crate::logger::Logger;
 use crate::ssh;
 use crate::ssh_log::{SshStderrAnnotator, describe_configured_forwards};
+
 
 const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(250);
@@ -41,7 +42,12 @@ pub fn run(config_path: PathBuf, stop: Arc<AtomicBool>) -> Result<()> {
         config.connections.len(),
         config_path.display()
     ));
-    let mut supervisor = Supervisor::start(config.connections, logger.clone())?;
+    let mut supervisor = Supervisor::start(
+        config.connections,
+        config.keepalive,
+        config.retry,
+        logger.clone(),
+    )?;
     let mut snapshot = config_snapshot(&config_path);
     let mut last_reload_error = None;
 
@@ -78,8 +84,13 @@ pub fn run(config_path: PathBuf, stop: Arc<AtomicBool>) -> Result<()> {
         };
 
         logger.info("configuration changed; reconciling connection workers");
-        let result =
-            supervisor.reconfigure(new_config.connections, new_logger.clone(), log_changed);
+        let result = supervisor.reconfigure(
+            new_config.connections,
+            new_config.keepalive,
+            new_config.retry,
+            new_logger.clone(),
+            log_changed,
+        );
         if log_changed {
             log_config = new_config.log;
             logger = new_logger;
@@ -122,7 +133,12 @@ struct Worker {
 }
 
 impl Worker {
-    fn spawn(connection: ConnectionConfig, logger: Logger) -> Result<Self> {
+    fn spawn(
+        connection: ConnectionConfig,
+        keepalive: KeepaliveConfig,
+        retry: RetryConfig,
+        logger: Logger,
+    ) -> Result<Self> {
         let name = connection.name.clone();
         let stop = Arc::new(AtomicBool::new(false));
         let worker_stop = Arc::clone(&stop);
@@ -130,7 +146,15 @@ impl Worker {
             .name(format!("connection-{name}"))
             .spawn({
                 let worker_config = connection.clone();
-                move || supervise_connection(worker_config, worker_stop, logger)
+                move || {
+                    supervise_connection(
+                        worker_config,
+                        keepalive,
+                        retry,
+                        worker_stop,
+                        logger,
+                    )
+                }
             })
             .with_context(|| format!("cannot start worker for connection {name}"))?;
         Ok(Self {
@@ -154,7 +178,12 @@ struct Supervisor {
 }
 
 impl Supervisor {
-    fn start(connections: Vec<ConnectionConfig>, logger: Logger) -> Result<Self> {
+    fn start(
+        connections: Vec<ConnectionConfig>,
+        keepalive: KeepaliveConfig,
+        retry: RetryConfig,
+        logger: Logger,
+    ) -> Result<Self> {
         let mut supervisor = Self {
             workers: HashMap::new(),
         };
@@ -163,7 +192,12 @@ impl Supervisor {
             .filter(|connection| connection.enabled)
         {
             let name = connection.name.clone();
-            match Worker::spawn(connection, logger.clone()) {
+            match Worker::spawn(
+                connection,
+                keepalive.clone(),
+                retry.clone(),
+                logger.clone(),
+            ) {
                 Ok(worker) => {
                     supervisor.workers.insert(name, worker);
                 }
@@ -179,6 +213,8 @@ impl Supervisor {
     fn reconfigure(
         &mut self,
         connections: Vec<ConnectionConfig>,
+        keepalive: KeepaliveConfig,
+        retry: RetryConfig,
         logger: Logger,
         force_restart: bool,
     ) -> Result<()> {
@@ -190,7 +226,9 @@ impl Supervisor {
         let obsolete: Vec<_> = self
             .workers
             .iter()
-            .filter(|(name, worker)| force_restart || desired.get(*name) != Some(&worker.config))
+            .filter(|(name, worker)| {
+                force_restart || desired.get(*name) != Some(&worker.config)
+            })
             .map(|(name, _)| name.clone())
             .collect();
         let stopped: Vec<_> = obsolete
@@ -209,7 +247,12 @@ impl Supervisor {
             if self.workers.contains_key(&name) {
                 continue;
             }
-            match Worker::spawn(connection, logger.clone()) {
+            match Worker::spawn(
+                connection,
+                keepalive.clone(),
+                retry.clone(),
+                logger.clone(),
+            ) {
                 Ok(worker) => {
                     self.workers.insert(name, worker);
                 }
@@ -234,13 +277,19 @@ impl Supervisor {
     }
 }
 
-fn supervise_connection(connection: ConnectionConfig, stop: Arc<AtomicBool>, logger: Logger) {
-    let mut delay = connection.retry.initial_seconds;
+fn supervise_connection(
+    connection: ConnectionConfig,
+    keepalive: KeepaliveConfig,
+    retry: RetryConfig,
+    stop: Arc<AtomicBool>,
+    logger: Logger,
+) {
+    let mut delay = retry.initial_seconds;
     logger.info(format!("{}: supervisor started", connection.name));
     while !stop.load(Ordering::Relaxed) {
         let started = Instant::now();
         let mut shutdown = false;
-        match ssh::spawn(&connection) {
+        match ssh::spawn(&connection, &keepalive) {
             Ok(mut child) => {
                 logger.info(format!(
                     "{}: ssh process started (pid {}); destination={}; forwards=[{}]",
@@ -276,8 +325,8 @@ fn supervise_connection(connection: ConnectionConfig, stop: Arc<AtomicBool>, log
             break;
         }
 
-        if started.elapsed() >= Duration::from_secs(connection.retry.stable_seconds) {
-            delay = connection.retry.initial_seconds;
+        if started.elapsed() >= Duration::from_secs(retry.stable_seconds) {
+            delay = retry.initial_seconds;
             logger.info(format!(
                 "{}: stable connection; retry delay reset",
                 connection.name
@@ -289,7 +338,7 @@ fn supervise_connection(connection: ConnectionConfig, stop: Arc<AtomicBool>, log
         }
         delay = delay
             .saturating_mul(2)
-            .min(connection.retry.maximum_seconds);
+            .min(retry.maximum_seconds);
     }
     logger.info(format!("{}: supervisor stopped", connection.name));
 }

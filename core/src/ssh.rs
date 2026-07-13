@@ -17,7 +17,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 #[cfg(windows)]
 const NO_CONSOLE_FLAGS: u32 = CREATE_NO_WINDOW;
 
-use crate::config::{ConnectionConfig, ForwardMode};
+use crate::config::{ConnectionConfig, ForwardMode, KeepaliveConfig};
 
 /// Apply every cross-platform tweak that keeps the GUI free of console
 /// flicker: stdin/stdout/stderr are sealed against the parent, the C locale
@@ -39,20 +39,20 @@ fn configure_quiet_spawn(command: &mut Command) {
     command.creation_flags(NO_CONSOLE_FLAGS);
 }
 
-pub fn spawn(connection: &ConnectionConfig) -> std::io::Result<Child> {
+pub fn spawn(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> std::io::Result<Child> {
     if connection.has_password() {
         // `sshpass -e` reads the password from the `SSHPASS` env var and feeds
         // it to ssh's stdin/tty, never appearing on the command line.
-        spawn_with_sshpass(connection)
+        spawn_with_sshpass(connection, keepalive)
     } else {
-        spawn_direct(connection)
+        spawn_direct(connection, keepalive)
     }
 }
 
-fn spawn_direct(connection: &ConnectionConfig) -> std::io::Result<Child> {
+fn spawn_direct(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> std::io::Result<Child> {
     let program = connection.ssh_path.clone().unwrap_or_else(default_ssh_path);
     let mut command = Command::new(program);
-    command.args(args(connection));
+    command.args(args(connection, keepalive));
     configure_quiet_spawn(&mut command);
     command.spawn()
 }
@@ -60,19 +60,19 @@ fn spawn_direct(connection: &ConnectionConfig) -> std::io::Result<Child> {
 /// Spawn ssh indirectly via `sshpass -e` so password auth is non-interactive.
 /// `BatchMode=yes` is dropped (it forbids password prompts) and `SSHPASS` is
 /// exported via the environment so the password never lands in `ps`.
-fn spawn_with_sshpass(connection: &ConnectionConfig) -> std::io::Result<Child> {
+fn spawn_with_sshpass(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> std::io::Result<Child> {
     let ssh = connection.ssh_path.clone().unwrap_or_else(default_ssh_path);
     let mut command = Command::new("sshpass");
     command
         .arg("-e")
         .arg(ssh)
-        .args(args(connection))
+        .args(args(connection, keepalive))
         .env("SSHPASS", connection.password.clone().unwrap_or_default());
     configure_quiet_spawn(&mut command);
     command.spawn()
 }
 
-pub fn args(connection: &ConnectionConfig) -> Vec<String> {
+pub fn args(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> Vec<String> {
     // `BatchMode=yes` forbids password prompts, so it must be dropped when a
     // password is configured — ssh then tries publickey first and falls back to
     // password auth (via sshpass) if no usable key is available.
@@ -85,11 +85,11 @@ pub fn args(connection: &ConnectionConfig) -> Vec<String> {
         "-o".into(),
         "ExitOnForwardFailure=yes".into(),
         "-o".into(),
-        format!("ConnectTimeout={}", connection.keepalive.connect_timeout),
+        format!("ConnectTimeout={}", keepalive.connect_timeout),
         "-o".into(),
-        format!("ServerAliveInterval={}", connection.keepalive.interval),
+        format!("ServerAliveInterval={}", keepalive.interval),
         "-o".into(),
-        format!("ServerAliveCountMax={}", connection.keepalive.count_max),
+        format!("ServerAliveCountMax={}", keepalive.count_max),
         "-o".into(),
         "LogLevel=DEBUG1".into(),
     ]);
@@ -125,10 +125,10 @@ pub struct TestOutput {
 /// Arguments for a connectivity test: no forwards, no `-N`, run a no-op
 /// remote command so the server authenticates and exits immediately.
 /// Forwards are intentionally omitted — we only want to verify auth + reachability.
-pub fn test_args(connection: &ConnectionConfig) -> Vec<String> {
+pub fn test_args(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> Vec<String> {
     let mut args = vec![
         "-o".into(),
-        format!("ConnectTimeout={}", connection.keepalive.connect_timeout),
+        format!("ConnectTimeout={}", keepalive.connect_timeout),
         "-o".into(),
         "LogLevel=ERROR".into(),
     ];
@@ -156,7 +156,7 @@ pub fn test_args(connection: &ConnectionConfig) -> Vec<String> {
 /// Runs with `BatchMode=yes` to mirror production behaviour: the test passes
 /// only when key/agent auth works, which is exactly the path the supervisor
 /// uses once the connection is enabled.
-pub fn test_connection(connection: &ConnectionConfig, timeout: Duration) -> TestOutput {
+pub fn test_connection(connection: &ConnectionConfig, keepalive: &KeepaliveConfig, timeout: Duration) -> TestOutput {
     // Same password handling as `spawn` so the probe exercises the auth path
     // the supervisor will actually use once the connection is enabled.
     let need_sshpass = connection.has_password();
@@ -172,13 +172,13 @@ pub fn test_connection(connection: &ConnectionConfig, timeout: Duration) -> Test
         command
             .arg("-e")
             .arg(ssh)
-            .args(test_args(connection))
+            .args(test_args(connection, keepalive))
             .env("SSHPASS", connection.password.clone().unwrap_or_default());
         command
     } else {
         let program = connection.ssh_path.clone().unwrap_or_else(default_ssh_path);
         let mut command = Command::new(program);
-        command.args(test_args(connection));
+        command.args(test_args(connection, keepalive));
         command
     };
     // Same helper the supervisor uses so the test command stays invisible

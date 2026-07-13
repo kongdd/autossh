@@ -3,9 +3,19 @@
 # Each [[connections]] block starts one ssh process with any number of -L / -R / -D forwards.
 # Authentication uses ordinary ~/.ssh/config (keys, agent, Host aliases).
 #
+# keepalive / retry are SHARED by every connection and live at the top level.
+# Editing them here propagates to all connections on the next supervisor reload.
+#
 # Optional password fallback: when `password` is set, `BatchMode=yes` is dropped
 # and `sshpass -e` feeds the password non-interactively. Requires `sshpass` on PATH.
 # `user` (optional) prepends `user@` to `host` unless `host` already contains `@`.
+
+# keepalive: ServerAliveInterval / ServerAliveCountMax / ConnectTimeout (seconds).
+keepalive = { interval = 360, count_max = 10, connect_timeout = 15 }
+
+# retry: initial / maximum / stable (seconds).
+# Optional. Defaults: 1 s initial, max 60 s, reset delay after 60 s stable connection.
+# retry = { initial_seconds = 1, maximum_seconds = 60, stable_seconds = 60 }
 
 [[connections]]
 name = "home-server"              # unique connection identifier
@@ -23,12 +33,6 @@ forwards = [
   { mode = "dynamic", forward = "1080" },                          # loopback only
 ]
 
-# keepalive: ServerAliveInterval / ServerAliveCountMax / ConnectTimeout (seconds).
-keepalive = { interval = 360, count_max = 10, connect_timeout = 15 }
-
-# Optional. Defaults: 1 s initial, max 60 s, reset delay after 60 s stable connection.
-# retry = { initial_seconds = 1, maximum_seconds = 60, stable_seconds = 60 }
-
 # Optional extra SSH arguments. Each item is one argument.
 # extra_args = ["-i", "/home/alice/.ssh/id_ed25519"]
 
@@ -40,4 +44,3 @@ keepalive = { interval = 360, count_max = 10, connect_timeout = 15 }
 # forwards = [
 #   { mode = "remote", forward = "10022:127.0.0.1:22" },
 # ]
-# keepalive = { interval = 30, count_max = 3 }

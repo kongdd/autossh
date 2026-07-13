@@ -32,10 +32,13 @@
 )]
 
 mod app;
+mod friday;
 mod log;
 mod modal;
 mod ssh_config;
 mod supervisor;
+#[cfg(target_os = "windows")]
+mod tray;
 
 use std::path::PathBuf;
 
@@ -62,6 +65,16 @@ fn main() -> Result<()> {
         Box::new(|cc| {
             install_windows_icon_fonts(&cc.egui_ctx);
             cc.egui_ctx.set_visuals(visuals());
+            #[cfg(target_os = "windows")]
+            let mut app = app;
+            #[cfg(not(target_os = "windows"))]
+            let app = app;
+            #[cfg(target_os = "windows")]
+            app.install_windows_tray(&cc.egui_ctx).map_err(|error| {
+                Box::<dyn std::error::Error + Send + Sync>::from(format!(
+                    "cannot create Windows tray icon: {error:#}"
+                ))
+            })?;
             Ok(Box::new(app))
         }),
     )

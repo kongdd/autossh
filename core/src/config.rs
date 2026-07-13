@@ -8,17 +8,25 @@ use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
 /// Top-level TOML configuration.
+///
+/// `keepalive` and `retry` live at the top level because every worker shares
+/// the same connection-lifecycle policy. Per-connection copies would let
+/// drift creep in and bloat the TOML.
 #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(default)]
     pub log: LogConfig,
     #[serde(default)]
+    pub keepalive: KeepaliveConfig,
+    #[serde(default)]
+    pub retry: RetryConfig,
+    #[serde(default)]
     pub connections: Vec<ConnectionConfig>,
 }
 
-/// One OpenSSH process connected to one host. A connection can own several
-/// local and remote forwards, sharing its keepalive and retry settings.
+/// One OpenSSH process connected to one host. A connection owns its forwards
+/// and SSH flags; keepalive/retry come from the parent [`Config`].
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ConnectionConfig {
@@ -46,10 +54,6 @@ pub struct ConnectionConfig {
     pub enabled: bool,
     /// An optional explicit path to ssh (ssh.exe on Windows).
     pub ssh_path: Option<PathBuf>,
-    #[serde(default)]
-    pub keepalive: KeepaliveConfig,
-    #[serde(default)]
-    pub retry: RetryConfig,
     #[serde(default)]
     pub extra_args: Vec<String>,
     pub forwards: Vec<ForwardConfig>,
@@ -263,6 +267,18 @@ impl Config {
     }
 
     pub(crate) fn validate(&self) -> Result<()> {
+        if self.keepalive.interval == 0
+            || self.keepalive.count_max == 0
+            || self.keepalive.connect_timeout == 0
+        {
+            bail!("keepalive values must be greater than zero");
+        }
+        if self.retry.initial_seconds == 0
+            || self.retry.maximum_seconds < self.retry.initial_seconds
+            || self.retry.stable_seconds == 0
+        {
+            bail!("retry settings are invalid: initial must be > 0 and <= maximum, stable must be > 0");
+        }
         if self.connections.is_empty() {
             bail!("configuration has no connections");
         }
@@ -309,21 +325,6 @@ impl Config {
             }
             if !names.insert(&connection.name) {
                 bail!("duplicate connection name: {}", connection.name);
-            }
-            if connection.keepalive.interval == 0
-                || connection.keepalive.count_max == 0
-                || connection.keepalive.connect_timeout == 0
-            {
-                bail!(
-                    "connection {}: keepalive values must be greater than zero",
-                    connection.name
-                );
-            }
-            if connection.retry.initial_seconds == 0
-                || connection.retry.maximum_seconds < connection.retry.initial_seconds
-                || connection.retry.stable_seconds == 0
-            {
-                bail!("connection {}: invalid retry settings", connection.name);
             }
         }
         Ok(())
