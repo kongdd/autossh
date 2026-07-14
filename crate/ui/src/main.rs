@@ -36,10 +36,11 @@ mod log;
 mod modal;
 mod ssh_config;
 mod supervisor;
+mod tunnel_icon;
 #[cfg(target_os = "windows")]
 mod tray;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Result;
 use eframe::egui::{self, Color32};
@@ -51,11 +52,15 @@ use crate::app::AutosshApp;
 fn main() -> Result<()> {
     let config_path = parse_args();
     let app = AutosshApp::load(config_path)?;
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("autossh-core")
+        .with_inner_size([1024.0, 720.0])
+        .with_min_inner_size([820.0, 560.0]);
+    if let Some(icon) = tunnel_icon::window_icon() {
+        viewport = viewport.with_icon(Arc::new(icon));
+    }
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("rust-autossh")
-            .with_inner_size([1024.0, 720.0])
-            .with_min_inner_size([820.0, 560.0]),
+        viewport,
         ..Default::default()
     };
     eframe::run_native(
@@ -102,7 +107,7 @@ fn parse_args() -> PathBuf {
 }
 
 /// Default config path. Delegates to `autossh_core::default_config_path` so the
-/// `rust-autossh` CLI and the `autossh-ui` GUI resolve the same path on every
+/// `autossh-core` CLI and the `autossh-ui` GUI resolve the same path on every
 /// platform: `~/.config/autossh/config.toml` (`%USERPROFILE%\.config\autossh\config.toml`
 /// on Windows). The `.config` directory is created on first run by `ensure_config`.
 pub fn default_path() -> PathBuf {

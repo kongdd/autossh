@@ -10,7 +10,7 @@ name = "autossh_core"
 path = "src/lib.rs"
 
 [[bin]]
-name = "rust-autossh"
+name = "autossh-core"
 path = "src/main.rs"
 
 [dependencies]

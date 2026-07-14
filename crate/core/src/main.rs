@@ -9,11 +9,11 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
 #[cfg(windows)]
-const SERVICE_NAME: &str = "rust-autossh";
+const SERVICE_NAME: &str = "autossh-core";
 
 #[derive(Parser)]
 #[command(
-    name = "rust-autossh",
+    name = "autossh-core",
     version,
     about = "Supervise OpenSSH port-forwarding tunnels"
 )]
@@ -210,12 +210,12 @@ mod windows_service_host {
     }
 
     fn report_service_error(config_path: &Path, error: &anyhow::Error) {
-        let message = format!("rust-autossh service stopped: {error:#}\n");
+        let message = format!("autossh-core service stopped: {error:#}\n");
         eprint!("{message}");
         let log_path = config_path
             .parent()
             .unwrap_or_else(|| Path::new("."))
-            .join("rust-autossh.service-error.log");
+            .join("autossh-core.service-error.log");
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_path) {
             let _ = file.write_all(message.as_bytes());
         }
@@ -230,7 +230,7 @@ fn run_service(_config: PathBuf) -> Result<()> {
 const EXAMPLE_CONFIG: &str = r##"# Each [[connections]] block starts one ssh process with any number of -L / -R forwards.
 # keepalive / retry apply to ALL connections; per-connection overrides are
 # intentional not supported so the supervisor lifecycle stays predictable.
-# Edit this file, then run `rust-autossh run` again.
+# Edit this file, then run `autossh-core run` again.
 
 keepalive = { interval = 60, count_max = 3, connect_timeout = 15 }
 retry     = { initial_seconds = 1, maximum_seconds = 60, stable_seconds = 60 }

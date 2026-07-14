@@ -3,7 +3,7 @@ use std::process;
 
 #[test]
 fn startup_replaces_previous_log() {
-    let directory = std::env::temp_dir().join(format!("rust-autossh-log-{}", process::id()));
+    let directory = std::env::temp_dir().join(format!("autossh-core-log-{}", process::id()));
     let path = directory.join("autossh.log");
     fs::create_dir_all(&directory).unwrap();
     fs::write(&path, "old log\n").unwrap();

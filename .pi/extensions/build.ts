@@ -4,6 +4,11 @@
  *   /build                → cross-compile via x86_64-pc-windows-gnu (Linux host)
  *   /build <target>       → cross-compile via <target>
  *   On a Windows host the --target flag is omitted (cargo uses the host triple).
+ *
+ * Linux cross-build prerequisites (unchanged by this extension): `rustup target add
+ * x86_64-pc-windows-gnu` and MinGW (`gcc-mingw-w64-x86-64`) so the linker and
+ * `autossh-ui`’s winres step (`x86_64-w64-mingw32-windres`) succeed. Exe icons
+ * come from `docs/autossh-tunnel.ico` via `crate/ui/build.rs` (SVG is not embedded).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";

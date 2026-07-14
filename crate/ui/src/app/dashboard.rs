@@ -23,7 +23,7 @@ impl AutosshApp {
             ui.horizontal(|ui| {
                 ui.add_space(8.0);
                 ui.label(
-                    RichText::new("rust-autossh")
+                    RichText::new("autossh-core")
                         .strong()
                         .size(16.0)
                         .color(FG_PRIMARY),

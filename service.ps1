@@ -1,4 +1,4 @@
-param([ValidateSet("install","uninstall","start","stop","restart","enable","disable","status")]$Action,[string]$Exe=".\rust-autossh.exe",[string]$Config=".\config.toml"); $n="rust-autossh"
+param([ValidateSet("install","uninstall","start","stop","restart","enable","disable","status")]$Action,[string]$Exe=".\autossh-core.exe",[string]$Config=".\config.toml"); $n="autossh-core"
 switch ($Action) {
   "install"   { $e=(Resolve-Path $Exe).Path; $c=(Resolve-Path $Config).Path; sc.exe create $n binPath= "`"$e`" service --config `"$c`"" start= auto }
   "uninstall" { sc.exe stop $n; sc.exe delete $n }

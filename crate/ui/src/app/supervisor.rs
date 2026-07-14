@@ -13,7 +13,7 @@ impl AutosshApp {
         }
         self.supervisor.take();
         let Some(binary) = locate_supervisor() else {
-            self.flash("cannot find rust-autossh binary beside this UI; check PATH");
+            self.flash("cannot find autossh-core binary beside this UI; check PATH");
             return;
         };
         match SupervisorHandle::start(&binary, &self.config_path) {

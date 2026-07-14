@@ -24,7 +24,7 @@ fn connection() -> ConnectionConfig {
 #[test]
 fn snapshot_detects_same_size_content_change() {
     use std::{fs, process};
-    let path = std::env::temp_dir().join(format!("rust-autossh-{}", process::id()));
+    let path = std::env::temp_dir().join(format!("autossh-core-{}", process::id()));
     fs::write(&path, b"first").unwrap();
     let first = config_snapshot(&path);
     fs::write(&path, b"other").unwrap();

@@ -1,6 +1,6 @@
 //! Supervisor child process management.
 //!
-//! Spawns `rust-autossh run` as a child, reads its stderr through a
+//! Spawns `autossh-core run` as a child, reads its stderr through a
 //! `BufReader` + background thread, and pushes parsed `LogEntry` values
 //! into an `mpsc` channel that the UI polls each frame.
 
@@ -29,7 +29,7 @@ use anyhow::{Context, Result};
 
 use crate::log::{LogEntry, parse_log_line};
 
-/// Locate the `rust-autossh` supervisor binary.
+/// Locate the `autossh-core` supervisor binary.
 ///
 /// Checks (in order):
 /// 1. Sibling of the current executable
@@ -38,9 +38,9 @@ pub fn locate_supervisor() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let parent = exe.parent()?;
     let binary = if cfg!(windows) {
-        "rust-autossh.exe"
+        "autossh-core.exe"
     } else {
-        "rust-autossh"
+        "autossh-core"
     };
     let sibling = parent.join(binary);
     if sibling.exists() {

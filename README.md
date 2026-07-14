@@ -1,6 +1,6 @@
-# rust-autossh
+# autossh-ports
 
-`rust-autossh` supervises one or more OpenSSH port-forwarding processes. It does **not** implement SSH: it starts the system `ssh` (`ssh.exe` on Windows), detects its exit, and restarts it with bounded exponential backoff.
+`autossh-core` supervises one or more OpenSSH port-forwarding processes. It does **not** implement SSH: it starts the system `ssh` (`ssh.exe` on Windows), detects its exit, and restarts it with bounded exponential backoff.
 
 ## Features
 
@@ -26,8 +26,8 @@ On Windows, install [OpenSSH Client](https://learn.microsoft.com/windows-server/
 Copy and edit [`config.example.toml`](config.example.toml), then validate it. The default location is `$HOME/.config/autossh/config.toml` on every platform (Windows resolves `%USERPROFILE%` when `HOME` is unset):
 
 ```powershell
-.\rust-autossh.exe check --config %USERPROFILE%\.config\autossh\config.toml
-.\rust-autossh.exe run --config %USERPROFILE%\.config\autossh\config.toml
+.\autossh-core.exe check --config %USERPROFILE%\.config\autossh\config.toml
+.\autossh-core.exe run --config %USERPROFILE%\.config\autossh\config.toml
 ```
 
 Each `[[connections]]` block creates one `ssh` process. `name` is a unique connection identifier; optional `description` is a GUI note. Optional `host` is the SSH destination (host/IP/alias) and defaults to `name` for backward compatibility. Optional `user`, `password`, and `port` map to SSH authentication and `-p`; omitting `port` uses OpenSSH's default (22). Its `forwards` array may mix any number of `-L`, `-R`, and `-D` (local SOCKS proxy) mappings. Set a forward's `enabled = false` to keep it in the configuration without passing it to SSH.
@@ -49,7 +49,7 @@ Open an **elevated** PowerShell. Service-mode runs as `LocalSystem` whose `%USER
 ```powershell
 mkdir C:\ProgramData\autossh
 copy .\config.example.toml C:\ProgramData\autossh\config.toml
-.\scripts\service.ps1 install -Exe .\rust-autossh.exe -Config C:\ProgramData\autossh\config.toml
+.\scripts\service.ps1 install -Exe .\autossh-core.exe -Config C:\ProgramData\autossh\config.toml
 .\scripts\service.ps1 start
 .\scripts\service.ps1 status
 ```
@@ -64,10 +64,10 @@ The service is automatic and runs as `LocalSystem` by default. This account has 
 .\scripts\service.ps1 uninstall
 ```
 
-The Windows Service Control Manager does not restart a service that remains alive while it reconnects. `rust-autossh` performs those tunnel restarts itself. Optionally configure SCM recovery separately for a program crash:
+The Windows Service Control Manager does not restart a service that remains alive while it reconnects. `autossh-core` performs those tunnel restarts itself. Optionally configure SCM recovery separately for a program crash:
 
 ```powershell
-sc.exe failure rust-autossh reset= 86400 actions= restart/5000/restart/5000/restart/5000
+sc.exe failure autossh-core reset= 86400 actions= restart/5000/restart/5000/restart/5000
 ```
 
 ## Operational notes
@@ -75,4 +75,4 @@ sc.exe failure rust-autossh reset= 86400 actions= restart/5000/restart/5000/rest
 - Config content is checked every two seconds. A reload restarts only changed connections; changing log settings restarts all connections. Apply changes atomically (write a temporary file, then rename it) to avoid a transient syntax error.
 - `ExitOnForwardFailure=yes` is especially important for detecting a failed initial forwarding request.
 - A remote forward may still require `GatewayPorts` / `AllowTcpForwarding` on the SSH server.
-- Tunnel stdout is discarded. Supervisor events are written to stderr and, when configured, to a log file that is replaced on each program start. SSH stderr is captured; OpenSSH DEBUG1 forwarding traces are used internally to annotate `channel ... open failed` messages with the matching `-L`/`-R` listen port, target, and originator where available. A service startup failure is additionally written to `rust-autossh.service-error.log` beside config.
+- Tunnel stdout is discarded. Supervisor events are written to stderr and, when configured, to a log file that is replaced on each program start. SSH stderr is captured; OpenSSH DEBUG1 forwarding traces are used internally to annotate `channel ... open failed` messages with the matching `-L`/`-R` listen port, target, and originator where available. A service startup failure is additionally written to `autossh-core.service-error.log` beside config.

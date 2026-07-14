@@ -15,7 +15,7 @@ Rust `eframe/egui` 原生桌面程序。不用浏览器 / Playwright。流程：
 cargo build -p autossh-ui
 ```
 
-产物：`target/debug/autossh-ui`、`target/debug/rust-autossh`。长构建用 `process start`，不要 `&`。
+产物：`target/debug/autossh-ui`、`target/debug/autossh-core`。长构建用 `process start`，不要 `&`。
 
 ## 2. 隔离配置
 
@@ -83,16 +83,16 @@ process kill id=xvfb-server
 
 ## 4. 交互坐标
 
-工具依赖：`xdotool`、`xdotool search --name rust-autossh`、`xdotool search --name rust-autossh getwindowgeometry --shell`。窗口默认 1024×720、原点 (0,0)。
+工具依赖：`xdotool`、`xdotool search --name autossh-core`、`xdotool search --name autossh-core getwindowgeometry --shell`。窗口默认 1024×720、原点 (0,0)。
 
-| 元素 | 位置 |
-|---|---|
-| Connections 面板 | `x ∈ [0,512)` |
-| 标题栏 + SSH hosts 按钮 | `y ∈ [30,60]`，SSH `x ≈ 350..430` |
-| connection 名称 | `y ≈ 65..100`，`x ≈ 60..140` |
-| connection 详情行 | `y ≈ 105..140` |
-| Start All / Stop All | `x ≈ 880..960`，`y ≈ 38`；Save 最右侧 |
-| Logs 面板 | `y ≥ 500`，follow 右上角 |
+| 元素                    | 位置                                  |
+| ----------------------- | ------------------------------------- |
+| Connections 面板        | `x ∈ [0,512)`                         |
+| 标题栏 + SSH hosts 按钮 | `y ∈ [30,60]`，SSH `x ≈ 350..430`     |
+| connection 名称         | `y ≈ 65..100`，`x ≈ 60..140`          |
+| connection 详情行       | `y ≈ 105..140`                        |
+| Start All / Stop All    | `x ≈ 880..960`，`y ≈ 38`；Save 最右侧 |
+| Logs 面板               | `y ≥ 500`，follow 右上角              |
 
 点击：
 
@@ -122,7 +122,7 @@ convert /tmp/raw.xwd PNG24:images/autossh-ui-connection-edit.png
 ## 6. 卫生
 
 - 不预览真实 SSH 地址 / 私钥 / 用户配置。
-- 换版本前清理 X 端残留：`pkill -9 -f autossh-ui && DISPLAY=:77 xdotool search --name rust-autossh getwindowpid %@ 2>/dev/null | xargs -r kill -9`。
+- 换版本前清理 X 端残留：`pkill -9 -f autossh-ui && DISPLAY=:77 xdotool search --name autossh-core getwindowpid %@ 2>/dev/null | xargs -r kill -9`。
 - 残留多窗口会让截图拍到旧版本。
 
 ---
@@ -131,13 +131,13 @@ convert /tmp/raw.xwd PNG24:images/autossh-ui-connection-edit.png
 
 5 条症状 → 真因 → 修法。表格序号是子节错交叉引用错（例：「回 §Q3」）。
 
-| # | 症状 | 真因 | 修法 |
-|---|---|---|---|
-| 1 | 截图 `1-bit grayscale`，227 字节 | `import` 走 PNG8 | `xwd` + `convert PNG24:` |
-| 2 | 进程活、截图全黑；`xwininfo` 显 `IsUnMapped` / `1x1` | eframe 0.29 默认 Wayland，Xvfb 只 X11 | 强制 X11 env |
-| 3 | 下条命令发现 Xvfb / app 没了 | `bash &` 子进程随会话回收 | 全程 `process start` |
-| 4 | `xdotool search` 返 ≥2 个窗口、截图拍到旧版 | 旧版窗口被 X server 持有 | 清 X 端残留 |
-| 5 | 改 `visuals()` 一调到底、多处失谐 | 视觉未对齐、参数互相吃 | 一次只动 1~2 色阶 |
+| #   | 症状                                                 | 真因                                  | 修法                     |
+| --- | ---------------------------------------------------- | ------------------------------------- | ------------------------ |
+| 1   | 截图 `1-bit grayscale`，227 字节                     | `import` 走 PNG8                      | `xwd` + `convert PNG24:` |
+| 2   | 进程活、截图全黑；`xwininfo` 显 `IsUnMapped` / `1x1` | eframe 0.29 默认 Wayland，Xvfb 只 X11 | 强制 X11 env             |
+| 3   | 下条命令发现 Xvfb / app 没了                         | `bash &` 子进程随会话回收             | 全程 `process start`     |
+| 4   | `xdotool search` 返 ≥2 个窗口、截图拍到旧版          | 旧版窗口被 X server 持有              | 清 X 端残留              |
+| 5   | 改 `visuals()` 一调到底、多处失谐                    | 视觉未对齐、参数互相吃                | 一次只动 1~2 色阶        |
 
 ### §Q1 `import -window root` 1-bit 黑屏
 
@@ -182,11 +182,11 @@ process start name=autossh-ui    command="env WAYLAND_DISPLAY= DISPLAY=:77 XDG_S
 ```bash
 pkill -9 -f autossh-ui
 sleep 1
-DISPLAY=:77 xdotool search --name rust-autossh getwindowpid %@ 2>/dev/null \
+DISPLAY=:77 xdotool search --name autossh-core getwindowpid %@ 2>/dev/null \
   | xargs -r kill -9 2>/dev/null
 ```
 
-判定：`xdotool search --name rust-autossh` 返 ≥2 ID、新旧 PID 都对应有窗口。
+判定：`xdotool search --name autossh-core` 返 ≥2 ID、新旧 PID 都对应有窗口。
 
 
 ### §Q5 一次改太多色，`visuals()` 全面失谐

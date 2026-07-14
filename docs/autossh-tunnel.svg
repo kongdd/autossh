@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">autossh-core tunnel</title>
+  <desc id="desc">A tunnel arch containing two clean, opposing forwarding arrows.</desc>
+  <rect x="28" y="28" width="456" height="456" rx="116" fill="#202A38"/>
+  <rect x="36" y="36" width="440" height="440" rx="108" fill="none" stroke="#52647D" stroke-width="8"/>
+  <!-- A stable tunnel: intentionally kept as one broad, high-contrast stroke. -->
+  <path d="M116 378V250c0-192 280-192 280 0v128" fill="none" stroke="#28D5E3" stroke-linecap="round" stroke-width="28"/>
+  <!-- Separate lanes remain legible from 16 px upward. -->
+  <path d="M143 208h190m-46-46 46 46-46 46" fill="none" stroke="#F5F8FA" stroke-linecap="round" stroke-linejoin="round" stroke-width="30"/>
+  <path d="M369 304H179m46-46-46 46 46 46" fill="none" stroke="#F5F8FA" stroke-linecap="round" stroke-linejoin="round" stroke-width="30"/>
+</svg>
