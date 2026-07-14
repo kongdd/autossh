@@ -49,7 +49,10 @@ pub fn spawn(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> std:
     }
 }
 
-fn spawn_direct(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> std::io::Result<Child> {
+fn spawn_direct(
+    connection: &ConnectionConfig,
+    keepalive: &KeepaliveConfig,
+) -> std::io::Result<Child> {
     let program = connection.ssh_path.clone().unwrap_or_else(default_ssh_path);
     let mut command = Command::new(program);
     command.args(args(connection, keepalive));
@@ -60,7 +63,10 @@ fn spawn_direct(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> s
 /// Spawn ssh indirectly via `sshpass -e` so password auth is non-interactive.
 /// `BatchMode=yes` is dropped (it forbids password prompts) and `SSHPASS` is
 /// exported via the environment so the password never lands in `ps`.
-fn spawn_with_sshpass(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> std::io::Result<Child> {
+fn spawn_with_sshpass(
+    connection: &ConnectionConfig,
+    keepalive: &KeepaliveConfig,
+) -> std::io::Result<Child> {
     let ssh = connection.ssh_path.clone().unwrap_or_else(default_ssh_path);
     let mut command = Command::new("sshpass");
     command
@@ -156,7 +162,11 @@ pub fn test_args(connection: &ConnectionConfig, keepalive: &KeepaliveConfig) -> 
 /// Runs with `BatchMode=yes` to mirror production behaviour: the test passes
 /// only when key/agent auth works, which is exactly the path the supervisor
 /// uses once the connection is enabled.
-pub fn test_connection(connection: &ConnectionConfig, keepalive: &KeepaliveConfig, timeout: Duration) -> TestOutput {
+pub fn test_connection(
+    connection: &ConnectionConfig,
+    keepalive: &KeepaliveConfig,
+    timeout: Duration,
+) -> TestOutput {
     // Same password handling as `spawn` so the probe exercises the auth path
     // the supervisor will actually use once the connection is enabled.
     let need_sshpass = connection.has_password();

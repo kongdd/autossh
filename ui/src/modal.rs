@@ -10,8 +10,7 @@ use std::{
 };
 
 use autossh_core::{
-    Config, ConnectionConfig, ForwardConfig, ForwardMode, KeepaliveConfig,
-    test_connection,
+    Config, ConnectionConfig, ForwardConfig, ForwardMode, KeepaliveConfig, test_connection,
 };
 use eframe::egui::{self, Color32, RichText};
 
@@ -1143,9 +1142,7 @@ impl SshImportState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use autossh_core::{
-        ConnectionConfig, ForwardConfig, ForwardMode,
-    };
+    use autossh_core::{ConnectionConfig, ForwardConfig, ForwardMode};
 
     fn make_connection(name: &str, host: &str, forward: &str) -> ConnectionConfig {
         ConnectionConfig {

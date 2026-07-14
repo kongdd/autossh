@@ -208,7 +208,10 @@ fn top_level_globals_round_trip() {
     };
     config.save(&path).unwrap();
     let body = std::fs::read_to_string(&path).unwrap();
-    assert!(body.contains("[keepalive]") || body.contains("keepalive = {"), "TOML: {body}");
+    assert!(
+        body.contains("[keepalive]") || body.contains("keepalive = {"),
+        "TOML: {body}"
+    );
     let reloaded = Config::load(&path).unwrap();
     assert_eq!(reloaded.keepalive.interval, 45);
     assert_eq!(reloaded.retry.initial_seconds, 2);

@@ -2,9 +2,9 @@
 
 use eframe::egui::{self, Color32, RichText};
 
-use crate::friday::{FridayState, LISTEN_ADDR};
 use crate::log::{FG_DIM, FG_ERROR, FG_MUTED, FG_PRIMARY, FG_SUCCESS, FG_WARNING};
 use crate::modal::{GlobalGroup, Modal};
+use friday::{FridayState, LISTEN_ADDR};
 
 use super::AutosshApp;
 

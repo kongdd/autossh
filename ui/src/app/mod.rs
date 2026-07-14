@@ -20,10 +20,10 @@ use std::{
 use autossh_core::{Config, KeepaliveConfig, RetryConfig};
 use eframe::egui;
 
-use crate::friday::FridayReceiver;
 use crate::log::{LOG_BUFFER_LIMIT, LogScroll};
 use crate::modal::Modal;
 use crate::supervisor::SupervisorHandle;
+use friday::FridayReceiver;
 
 pub mod centre;
 pub mod connections;

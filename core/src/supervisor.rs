@@ -27,7 +27,6 @@ use crate::logger::Logger;
 use crate::ssh;
 use crate::ssh_log::{SshStderrAnnotator, describe_configured_forwards};
 
-
 const CONFIG_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const CHILD_POLL_INTERVAL: Duration = Duration::from_millis(250);
 
@@ -146,15 +145,7 @@ impl Worker {
             .name(format!("connection-{name}"))
             .spawn({
                 let worker_config = connection.clone();
-                move || {
-                    supervise_connection(
-                        worker_config,
-                        keepalive,
-                        retry,
-                        worker_stop,
-                        logger,
-                    )
-                }
+                move || supervise_connection(worker_config, keepalive, retry, worker_stop, logger)
             })
             .with_context(|| format!("cannot start worker for connection {name}"))?;
         Ok(Self {
@@ -192,12 +183,7 @@ impl Supervisor {
             .filter(|connection| connection.enabled)
         {
             let name = connection.name.clone();
-            match Worker::spawn(
-                connection,
-                keepalive.clone(),
-                retry.clone(),
-                logger.clone(),
-            ) {
+            match Worker::spawn(connection, keepalive.clone(), retry.clone(), logger.clone()) {
                 Ok(worker) => {
                     supervisor.workers.insert(name, worker);
                 }
@@ -226,9 +212,7 @@ impl Supervisor {
         let obsolete: Vec<_> = self
             .workers
             .iter()
-            .filter(|(name, worker)| {
-                force_restart || desired.get(*name) != Some(&worker.config)
-            })
+            .filter(|(name, worker)| force_restart || desired.get(*name) != Some(&worker.config))
             .map(|(name, _)| name.clone())
             .collect();
         let stopped: Vec<_> = obsolete
@@ -247,12 +231,7 @@ impl Supervisor {
             if self.workers.contains_key(&name) {
                 continue;
             }
-            match Worker::spawn(
-                connection,
-                keepalive.clone(),
-                retry.clone(),
-                logger.clone(),
-            ) {
+            match Worker::spawn(connection, keepalive.clone(), retry.clone(), logger.clone()) {
                 Ok(worker) => {
                     self.workers.insert(name, worker);
                 }
@@ -336,9 +315,7 @@ fn supervise_connection(
         if sleep_until_stopped(Duration::from_secs(delay), &stop) {
             break;
         }
-        delay = delay
-            .saturating_mul(2)
-            .min(retry.maximum_seconds);
+        delay = delay.saturating_mul(2).min(retry.maximum_seconds);
     }
     logger.info(format!("{}: supervisor stopped", connection.name));
 }

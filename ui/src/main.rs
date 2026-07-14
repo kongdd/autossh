@@ -32,7 +32,6 @@
 )]
 
 mod app;
-mod friday;
 mod log;
 mod modal;
 mod ssh_config;

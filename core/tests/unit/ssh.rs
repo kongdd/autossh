@@ -90,7 +90,12 @@ fn emits_dynamic_forward_with_bind_address() {
 fn name_remains_the_default_destination() {
     let mut connection = connection();
     connection.host = None;
-    assert_eq!(args(&connection, &KeepaliveConfig::default()).last().unwrap(), "primary");
+    assert_eq!(
+        args(&connection, &KeepaliveConfig::default())
+            .last()
+            .unwrap(),
+        "primary"
+    );
 }
 
 #[test]
@@ -157,7 +162,11 @@ fn args_keep_batchmode_for_key_auth() {
 fn args_include_configured_ssh_port() {
     let mut conn = connection();
     conn.port = Some(2202);
-    assert!(&args(&conn, &KeepaliveConfig::default()).windows(2).any(|part| part == ["-p", "2202"]));
+    assert!(
+        &args(&conn, &KeepaliveConfig::default())
+            .windows(2)
+            .any(|part| part == ["-p", "2202"])
+    );
     assert!(
         test_args(&conn, &KeepaliveConfig::default())
             .windows(2)

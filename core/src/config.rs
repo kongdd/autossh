@@ -277,7 +277,9 @@ impl Config {
             || self.retry.maximum_seconds < self.retry.initial_seconds
             || self.retry.stable_seconds == 0
         {
-            bail!("retry settings are invalid: initial must be > 0 and <= maximum, stable must be > 0");
+            bail!(
+                "retry settings are invalid: initial must be > 0 and <= maximum, stable must be > 0"
+            );
         }
         if self.connections.is_empty() {
             bail!("configuration has no connections");
